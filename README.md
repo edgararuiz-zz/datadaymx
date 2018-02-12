@@ -10,6 +10,8 @@ Si desea practicar los ejercicios en vivo durante la sesión, por favor asegúre
 install.packages("sparklyr")
 install.packages("tidyverse")
 install.packages("dbplot")
+install.packages("nycflights13")
+install.packages("janeaustenr")
 ```
 También, es necesario tener Spark instalado en su computadora.  La siguiente instrucción también funciona en Windows:
 
