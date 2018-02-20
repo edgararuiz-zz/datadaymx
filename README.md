@@ -1,4 +1,4 @@
-# Sesion de `sparklyr` durante Data Day Mexico 2019
+# Sesion de `sparklyr` durante Data Day Mexico 2018
 
 Si planea ir a esta platica, por favor chequee este página regularmente.  Aquí vamos a publicar las instrucciones. También, este repositorio va a tener la presentación y el código que se va a usar durante la sesión.
 
