@@ -311,12 +311,23 @@ $(document).ready(function () {
 <p>Si planea ir a esta platica, por favor chequee este página regularmente. Aquí vamos a publicar las instrucciones. También, este repositorio va a tener la presentación y el código que se va a usar durante la sesión.</p>
 <section id="tarea-para-usted" class="level2">
 <h2>Tarea para usted</h2>
-<p>Si desea practicar los ejercicios en vivo durante la sesión, por favor asegúrese de tener los siguientes paquetes de R pre-instalados en su computadora:</p>
-<pre class="r"><code>install.packages(&quot;sparklyr&quot;)
-install.packages(&quot;tidyverse&quot;)
-install.packages(&quot;dbplot&quot;)</code></pre>
-<p>También, es necesario tener Spark instalado en su computadora. La siguiente instrucción también funciona en Windows:</p>
-<pre class="r"><code>spark_install(&quot;2.0.0&quot;)</code></pre>
+<ul>
+<li>Si desea practicar los ejercicios en vivo durante la sesión, por favor asegúrese de tener los siguientes paquetes de R pre-instalados en su computadora:</li>
+</ul>
+<pre class="r"><code>  install.packages(&quot;sparklyr&quot;)
+  install.packages(&quot;tidyverse&quot;)
+  install.packages(&quot;dbplot&quot;)
+  install.packages(&quot;nycflights13&quot;)
+  install.packages(&quot;janeaustenr&quot;)</code></pre>
+<ul>
+<li><p>Asegúrese de tener Java 8 instalado en su computadora, puede bajarlo aquí: <a href="https://www.java.com/en/" class="uri">https://www.java.com/en/</a></p></li>
+<li><p>También, es necesario tener Spark instalado en su computadora. La siguiente instrucción también funciona en Windows:</p></li>
+</ul>
+<pre class="r"><code>  spark_install(&quot;2.0.0&quot;)</code></pre>
+<ul>
+<li>Para confirmar que todo funciona, use el siguiente comando:</li>
+</ul>
+<pre class="r"><code>  sc &lt;- spark_connect(master = &quot;local&quot;, version = &quot;2.0.0&quot;)</code></pre>
 </section>
 </section>
 
