@@ -217,6 +217,27 @@ modelo_nuevo <- ml_fit(
 modelo_nuevo
 ```
 
+```{r}
+predicciones <- ml_transform(
+  x = modelo_nuevo,
+  dataset = muestra_vuelos$examinar
+)
+
+predicciones
+```
+
+```{r}
+predicciones%>%
+  group_by(tarde, prediction) %>%
+  tally()
+```
+
+```{r}
+ml_save(tuberia_vuelos, "tuberia", overwrite = TRUE)
+
+dir("tuberia")
+```
+
 
 # Analysis de texto
 
