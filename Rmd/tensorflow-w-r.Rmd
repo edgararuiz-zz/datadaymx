@@ -1,0 +1,414 @@
+---
+title: "Aprendizaje Automatico con Tensorflow y R"
+output: html_notebook
+---
+
+## Install necessary packages
+
+```{r, eval = FALSE}
+pkgs <- c("keras", "lime", "rsample", "recipes", "yardstick", "corrr")
+install.packages(pkgs)
+```
+
+```{r, include = FALSE}
+library(keras)
+library(lime)
+library(tidyverse)
+library(rsample)
+library(recipes)
+library(yardstick)
+library(corrr)
+library(tensorflow)
+```
+
+## tidyverse
+
+http://tidyverse.org/
+
+The `tidyverse` packages provide an easy way to **import**, **tidy**, **transform** and **visualize** the data.  Some of it's component R packages are:
+
+- `dplyr`
+- `tidyr`
+- `readr`
+- `ggplot2`
+
+
+```{r, echo = FALSE}
+library(tidyverse)
+
+if(!file.exists("customer_churn.csv")){
+  download.file(
+    "https://raw.githubusercontent.com/rstudio/keras-customer-churn/master/data/WA_Fn-UseC_-Telco-Customer-Churn.csv",
+    "customer_churn.csv"
+  ) 
+}
+
+datos_perdimiento <- read_csv("customer_churn.csv")
+```
+
+```{r}
+glimpse(datos_perdimiento)
+```
+
+
+## rsample
+
+https://tidymodels.github.io/rsample/
+
+`rsample` contains a set of functions that can create different types of resamples and corresponding classes for their analysis. The goal is to have a modular set of methods that can be used across different R packages for:
+
+traditional resampling techniques for estimating the sampling distribution of a statistic and
+estimating model performance using a holdout set
+
+```{r}
+library(rsample)
+
+set.seed(100)
+
+separa_datos <- initial_split(
+  datos_perdimiento, 
+  prop = 0.3)
+
+tbl_entrenar <- training(separa_datos)
+tbl_prueba  <- testing(separa_datos)
+```
+
+## recipes
+
+https://tidymodels.github.io/recipes/
+
+The `recipes` package is an alternative method for creating and preprocessing design matrices that can be used for modeling or visualization. 
+
+```{r}
+library(recipes)
+
+receta <- tbl_entrenar %>%
+  recipe(Churn ~ .) %>%
+  step_rm(customerID) %>%
+  step_naomit(all_outcomes(), all_predictors()) %>%
+  step_discretize(tenure, options = list(cuts = 6)) %>%
+  step_log(TotalCharges) %>%
+  step_mutate(Churn = ifelse(Churn == "Yes", 1, 0)) %>%
+  step_dummy(all_nominal(), -all_outcomes()) %>%
+  step_center(all_predictors(), -all_outcomes()) %>%
+  step_scale(all_predictors(), -all_outcomes()) %>%
+  prep()
+
+summary(receta)
+```
+
+Save the recipe file into the Shiny folder for later use
+```{r}
+save(receta, file = "../shiny-app/receta.RData")
+```
+
+Use `juice()` to extarct the results from the model preparation. The predictor and outcome data are processed separately.  This is because how Keras expects these arguments to be used when fitting a model.
+
+```{r}
+x_tbl_entrenar <- receta %>% 
+  juice(all_predictors(), composition = "matrix") 
+
+y_vec_entrenar <- receta %>% 
+  juice(all_outcomes()) %>% 
+  pull()
+```
+
+The same is done with the testing data so that the two can be compared.
+
+```{r}
+baked_test <- bake(receta, tbl_prueba)
+
+x_tbl_prueba <- baked_test %>%
+  select(-Churn) %>%
+  as.matrix()
+
+y_vec_prueba <- baked_test %>%
+  select(Churn) %>%
+  pull()
+```
+
+
+## Install Tensorflow & Keras
+
+https://tensorflow.rstudio.com/tensorflow/articles/installation.html
+
+https://tensorflow.rstudio.com/keras/#installation
+
+```{r, eval = FALSE }
+library(tensorflow)
+library(keras)
+
+#install_tensorflow()
+#install_keras()
+```
+
+
+### Create Neural Network
+
+```{r}
+model_keras <- keras_model_sequential() %>%
+  layer_dense(
+    units = 16, 
+    kernel_initializer = "uniform", 
+    activation = "relu", 
+    input_shape = ncol(x_tbl_entrenar)) %>% 
+  layer_dropout(rate = 0.1) %>%
+  layer_dense(
+    units = 16, 
+    kernel_initializer = "uniform", 
+    activation = "relu") %>% 
+  layer_dropout(rate = 0.1) %>%
+  layer_dense(
+    units = 1, 
+    kernel_initializer = "uniform", 
+    activation = "sigmoid") %>% 
+  compile(
+    optimizer = 'adam',
+    loss = 'binary_crossentropy',
+    metrics = c('accuracy')
+  )
+
+model_keras
+```
+
+### Fit model
+
+```{r}
+# Fit the keras model to the training data
+history <- fit(
+  object = model_keras, 
+  x = x_tbl_entrenar, 
+  y = y_vec_entrenar,
+  batch_size = 50, 
+  epochs = 35,
+  validation_split = 0.30,
+  verbose = 0
+)
+
+print(history)
+```
+
+### Preview results
+
+```{r}
+theme_set(theme_bw())
+
+# Plot the training/validation history of our Keras model
+plot(history) 
+```
+
+```{r}
+# Predicted Class
+yhat_keras_class_vec <- model_keras %>%
+  predict_classes(x_tbl_prueba) %>%
+  as.factor() %>%
+  fct_recode(yes = "1", no = "0")
+
+# Predicted Class Probability
+yhat_keras_prob_vec  <- model_keras %>%
+  predict_proba(x_tbl_prueba) %>%
+  as.vector()
+
+test_truth <- y_vec_prueba %>% 
+  as.factor() %>% 
+  fct_recode(yes = "1", no = "0")
+
+# Format test data and predictions for yardstick metrics
+estimates_keras_tbl <- tibble(
+  truth      = test_truth,
+  estimate   = yhat_keras_class_vec,
+  class_prob = yhat_keras_prob_vec
+)
+
+estimates_keras_tbl
+```
+
+
+## yardstick
+
+https://tidymodels.github.io/yardstick/
+
+`yardstick` is a package to estimate how well models are working using tidy data principals.
+
+```{r}
+library(yardstick)
+
+options(yardstick.event_first = FALSE)
+
+# Confusion Table
+estimates_keras_tbl %>% 
+  conf_mat(truth, estimate)
+
+# Accuracy
+estimates_keras_tbl %>% 
+  metrics(truth, estimate)
+
+# AUC
+estimates_keras_tbl %>% 
+  roc_auc(truth, class_prob)
+
+# Precision
+estimates_keras_tbl %>%
+  precision(truth, estimate) %>%
+  bind_rows(
+    estimates_keras_tbl %>% 
+      recall(truth, estimate) 
+  ) 
+
+# F1-Statistic
+estimates_keras_tbl %>% 
+  f_meas(truth, estimate, beta = 1)
+```
+
+## lime
+
+https://github.com/thomasp85/lime
+
+The purpose of `lime` is to explain the predictions of black box classifiers. What this means is that for any given prediction and any given classifier it is able to determine a small set of features in the original data that has driven the outcome of the prediction. 
+
+```{r}
+library(lime)
+
+model_type.keras.engine.sequential.Sequential <- function(x, ...) {
+  "classification"
+}
+# Setup lime::predict_model() function for keras
+predict_model.keras.engine.sequential.Sequential <- function(x, newdata, type, ...) {
+  pred <- predict_proba(object = x, x = as.matrix(newdata))
+  data.frame(Yes = pred, No = 1 - pred)
+}
+```
+
+
+```{r}
+# Test our predict_model() function
+model_keras %>%
+  predict_model(x_tbl_prueba, "raw") %>%
+  as_tibble()
+```
+
+
+```{r}
+library(lime)
+
+# Run lime() on training set
+explainer <- x_tbl_entrenar %>%
+  as_tibble() %>% 
+  lime(model_keras, 
+       bin_continuous = FALSE)
+  
+# Run explain() on explainer
+explanation <-  x_tbl_entrenar %>%
+  as.data.frame() %>%
+  head(40) %>%
+  lime::explain(
+    explainer    = explainer, 
+    n_labels     = 1, 
+    n_features   = 4,
+    kernel_width = 0.5
+    )
+```
+
+
+```{r, fig.width = 10}
+plot_explanations(explanation) +
+  labs(
+    title = "Importancia de cada variable",
+    subtitle = "Usando 40 observaciones de prueba"
+    )
+```
+
+
+## corrr
+
+https://github.com/drsimonj/corrr
+
+`corrr` is a package for exploring correlations in R. It focuses on creating and working with data frames of correlations (instead of matrices) that can be easily explored via corrr functions or by leveraging tools like those in the `tidyverse.` 
+
+```{r}
+library(corrr)
+
+corrr_analysis <- x_tbl_entrenar %>%
+  as_tibble() %>%
+  mutate(Churn = y_vec_entrenar) %>%
+  correlate() %>%
+  focus(Churn) %>%
+  rename(feature = rowname) %>%
+  arrange(abs(Churn)) %>%
+  mutate(feature = as_factor(feature)) 
+
+corrr_analysis
+```
+
+```{r, fig.height = 7, fig.width = 7}
+over <- corrr_analysis %>%
+  filter(Churn > 0)
+
+under <- corrr_analysis %>%
+  filter(Churn < 0)
+
+corrr_analysis %>%
+  ggplot(aes(x = Churn, y = fct_reorder(feature, desc(Churn)))) +
+    geom_point() +
+    geom_segment(aes(xend = 0, yend = feature), data = under, color = "orange") +
+    geom_point(data = under, color = "orange") +
+    geom_segment(aes(xend = 0, yend = feature), data = over, color = "blue") +
+    geom_point(data = over, color = "blue") +
+  labs(title = "Corelaciones de perdida de clientes", y = "", x = "")
+  
+```
+
+
+## Some more exploration
+
+```{r}
+datos_perdimiento %>%
+  group_by(Contract, Churn) %>%
+  tally() %>%
+  spread(Churn, n)
+```
+
+
+```{r}
+datos_perdimiento %>%
+  group_by(InternetService, Churn) %>%
+  tally() %>%
+  spread(Churn, n)
+```
+
+## Deploying the model
+
+### Save the Keras model
+
+```{r, eval = FALSE}
+export_savedmodel(model_keras, "tfmodel")
+```
+
+## Deploy to RStudio Connect
+
+```{r,eval = FALSE}
+library(rsconnect)
+deployTFModel(
+  "tfmodel", 
+  server = "colorado.rstudio.com", 
+  account = rstudioapi::askForPassword("Enter Connect Username:")
+  )
+```
+
+### Test the deployed model
+
+```{r}
+library(httr)
+
+baked_numeric <- x_tbl_prueba %>%
+  as_tibble() %>%
+  head(4) %>%
+  transpose() %>%
+  map(as.numeric)
+
+body <- list(instances = list(baked_numeric))
+
+r <- POST("https://colorado.rstudio.com/rsc/content/2230/serving_default/predict", body = body, encode = "json")
+
+jsonlite::fromJSON(content(r))$predictions[, , 1]
+```
