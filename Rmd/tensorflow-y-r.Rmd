@@ -125,7 +125,7 @@ library(keras)
 ```
 
 
-### Create Neural Network
+### Crear una red neural
 
 ```{r}
 model_keras <- keras_model_sequential() %>%
@@ -153,10 +153,9 @@ model_keras <- keras_model_sequential() %>%
 model_keras
 ```
 
-### Fit model
+### Correr el modelo
 
 ```{r}
-# Fit the keras model to the training data
 history <- fit(
   object = model_keras, 
   x = x_tbl_entrenar, 
@@ -170,7 +169,7 @@ history <- fit(
 print(history)
 ```
 
-### Preview results
+### Ver los resultados
 
 ```{r}
 theme_set(theme_bw())

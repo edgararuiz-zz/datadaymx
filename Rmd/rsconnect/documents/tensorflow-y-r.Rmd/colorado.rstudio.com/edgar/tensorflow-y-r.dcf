@@ -5,8 +5,8 @@ account: edgar
 server: colorado.rstudio.com
 hostUrl: https://colorado.rstudio.com/rsc/__api__
 appId: 2246
-bundleId: 25347
+bundleId: 25348
 url: https://colorado.rstudio.com:443/rsc/content/2246/
-when: 1552833200.14864
+when: 1552839723.89048
 asMultiple: FALSE
 asStatic: TRUE
