@@ -1,0 +1,12 @@
+name: perdida_de_clientes
+title: Perdida de clientes
+username: edgar
+account: edgar
+server: colorado.rstudio.com
+hostUrl: https://colorado.rstudio.com/rsc/__api__
+appId: 2245
+bundleId: 25346
+url: https://colorado.rstudio.com:443/rsc/content/2245/
+when: 1552829486.19863
+asMultiple: FALSE
+asStatic: FALSE
